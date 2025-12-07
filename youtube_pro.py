@@ -17,7 +17,7 @@ from collections import Counter
 # ==========================================
 # 1. KONFIGURASI HALAMAN & CSS
 # ==========================================
-st.set_page_config(page_title="Intelejen Pro V9.2 - Mobile Fix", layout="wide", page_icon="📱")
+st.set_page_config(page_title="Intelejen Pro V9.3 - Anti 404", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -35,15 +35,12 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📱 INTELEJEN PRO by Victor Nenjap")
-st.markdown("**Hunter + Unicorn + Oracle + Spy Glass (Fix AI Model).**")
+st.title("📱 INTELEJEN PRO V9.3")
+st.markdown("**Hunter + Unicorn + Oracle + Spy Glass (Multi-Model Support).**")
 
 # ==========================================
 # 2. SISTEM API KEY
 # ==========================================
-# Di Streamlit Cloud, kita tidak bisa simpan file json permanen dengan mudah.
-# Jadi kita pakai Session State agar key tersimpan selama browser terbuka.
-
 if 'api_key_session' not in st.session_state:
     st.session_state['api_key_session'] = ''
 
@@ -271,11 +268,7 @@ def get_channel_id_smart(youtube, url):
 
 # --- Asset Downloaders (Modified for Cloud) ---
 def download_assets(video_data, channel_name):
-    # Di Streamlit Cloud, kita tidak bisa save file ke folder user dengan mudah.
-    # Jadi kita ubah logicnya untuk memberi TEXT yang bisa dicopy.
-    
     st.info("ℹ️ Di Versi Android/Cloud, file tidak bisa didownload sebagai ZIP. Silakan COPY teks di bawah ini.")
-    
     result_text = f"=== DOWNLOAD ASSET: {channel_name} ===\n\n"
     for vid in video_data:
         result_text += f"VIDEO: {vid['Judul']}\n"
@@ -298,27 +291,37 @@ def calculate_revenue(total_views, lang_percentages):
     weighted = sum([RPM_RATES.get(l, 0.50) * (p/100) for l, p in lang_percentages.items()])
     return weighted, (total_views/1000)*weighted
 
-# --- AI Reverse Engineer (FIXED: ANTI ERROR 404) ---
+# --- AI Reverse Engineer (FIXED: MULTI-MODEL SUPPORT) ---
 def reverse_engineer_prompt(api_key, img_url, title):
+    genai.configure(api_key=api_key)
+    
+    # DAFTAR MODEL YANG AKAN DICOBA SATU PER SATU
+    models_to_try = ['gemini-1.5-flash', 'gemini-1.5-pro', 'gemini-pro-vision']
+    
+    # Download Gambar sekali saja
     try:
-        genai.configure(api_key=api_key)
-        
-        # TRIK FIX: Coba panggil model 'gemini-1.5-flash'. 
-        # Jika error, kode akan otomatis lari ke 'except'.
-        try:
-            model = genai.GenerativeModel('gemini-1.5-flash')
-            img = Image.open(BytesIO(requests.get(img_url).content))
-            prompt = f"Analyze thumbnail & title: '{title}'. 1. Visual Prompt (Midjourney). 2. Audio Prompt (Suno AI). Output: [VISUAL]... [AUDIO]..."
-            return model.generate_content([prompt, img]).text
-        except:
-            # FALLBACK: Jika Flash error, pakai 'gemini-pro-vision' atau 'gemini-1.5-pro'
-            model = genai.GenerativeModel('gemini-1.5-flash-latest') 
-            img = Image.open(BytesIO(requests.get(img_url).content))
-            prompt = f"Analyze thumbnail & title: '{title}'. 1. Visual Prompt. 2. Audio Prompt."
-            return model.generate_content([prompt, img]).text
+        img_data = requests.get(img_url).content
+        img = Image.open(BytesIO(img_data))
+    except Exception as e:
+        return f"Gagal mengambil gambar thumbnail. Error: {e}"
 
-    except Exception as e: 
-        return f"Gagal membedah prompt. Error: {e}. (Pastikan API Key sudah ENABLE di Google Console)"
+    prompt = f"""Analyze thumbnail & title: '{title}'. 
+    Task 1: Reverse engineer Midjourney prompt (Subject, Style, Mood, Lighting). 
+    Task 2: Guess audio genre for Suno AI prompt (Genre, BPM, Instruments). 
+    Output: [VISUAL PROMPT] ... [AUDIO PROMPT] ..."""
+
+    # LOOPING COBA MODEL
+    last_error = ""
+    for model_name in models_to_try:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content([prompt, img])
+            return response.text # Jika sukses, langsung kembali
+        except Exception as e:
+            last_error = str(e)
+            continue # Jika gagal, lanjut ke model berikutnya
+            
+    return f"Gagal Bedah Prompt. Semua model menolak akses. Error terakhir: {last_error}"
 
 # --- Spy Scraper ---
 def scrape_spy(api_key, url, limit):
