@@ -17,67 +17,46 @@ from collections import Counter
 # ==========================================
 # 1. KONFIGURASI HALAMAN & CSS
 # ==========================================
-st.set_page_config(page_title="Intelejen Pro V9.1 - Mobile", layout="wide", page_icon="📱")
+st.set_page_config(page_title="Intelejen Pro V9.2 - Mobile Fix", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
     .stButton>button { width: 100%; border-radius: 8px; font-weight: bold; height: 50px; }
     .metric-card { background-color: #1e1e1e; padding: 15px; border-radius: 10px; border: 1px solid #333; }
     h1 { color: #00ff88; } 
-    /* Tab Styling */
     .stTabs [data-baseweb="tab-list"] button [data-testid="stMarkdownContainer"] p {
         font-size: 1.0rem; font-weight: bold;
     }
-    /* Kotak Gap */
     .gap-box {
         border: 2px dashed #00ff88; background-color: #0d1f14;
         padding: 20px; border-radius: 15px; text-align: center; margin-bottom: 20px;
     }
-    /* Spy Glass Section */
     .spy-section { border-left: 5px solid #d900ff; padding-left: 10px; margin-top: 20px; }
 </style>
 """, unsafe_allow_html=True)
 
 st.title("📱 INTELEJEN PRO by Victor Nenjap")
-st.markdown("**Hunter + Unicorn + Oracle + Spy Glass (All-in-One).**")
+st.markdown("**Hunter + Unicorn + Oracle + Spy Glass (Fix AI Model).**")
 
 # ==========================================
 # 2. SISTEM API KEY
 # ==========================================
-CONFIG_FILE = 'config_viktor.json'
+# Di Streamlit Cloud, kita tidak bisa simpan file json permanen dengan mudah.
+# Jadi kita pakai Session State agar key tersimpan selama browser terbuka.
 
-def load_api_key():
-    if os.path.exists(CONFIG_FILE):
-        try:
-            with open(CONFIG_FILE, 'r') as f:
-                data = json.load(f)
-                return data.get('api_key', '')
-        except: return ''
-    return ''
+if 'api_key_session' not in st.session_state:
+    st.session_state['api_key_session'] = ''
 
-def save_api_key(key):
-    with open(CONFIG_FILE, 'w') as f: json.dump({'api_key': key}, f)
-
-def delete_api_key():
-    if os.path.exists(CONFIG_FILE): os.remove(CONFIG_FILE)
-
-# SIDEBAR CONTROL
 st.sidebar.header("🎛️ Pusat Kontrol")
-saved_key = load_api_key()
-api_key_to_use = ""
+input_key = st.sidebar.text_input("API Key YouTube", type="password", value=st.session_state['api_key_session'])
 
-if saved_key:
-    st.sidebar.success("✅ API Key Siap")
-    api_key_to_use = saved_key
-    if st.sidebar.button("🗑️ Ganti API Key"):
-        delete_api_key()
-        st.rerun()
+if input_key:
+    st.session_state['api_key_session'] = input_key
+    st.sidebar.success("✅ API Key Terhubung")
 else:
-    input_key = st.sidebar.text_input("API Key YouTube", type="password")
-    if st.sidebar.button("💾 Simpan"):
-        save_api_key(input_key)
-        st.rerun()
-    api_key_to_use = input_key
+    st.sidebar.warning("⚠️ Masukkan API Key Dulu")
+
+api_key_to_use = st.session_state['api_key_session']
 
 # ==========================================
 # 3. FUNGSI HELPER (GLOBAL)
@@ -290,57 +269,56 @@ def get_channel_id_smart(youtube, url):
     except: pass
     return None
 
-# --- Asset Downloaders ---
+# --- Asset Downloaders (Modified for Cloud) ---
 def download_assets(video_data, channel_name):
-    safe_name = sanitize_filename(channel_name).replace(" ", "_")
-    base = f"ATM_Data_{safe_name}"; script_dir = os.path.join(base, "Scripts"); thumb_dir = os.path.join(base, "Thumbnails")
-    os.makedirs(script_dir, exist_ok=True); os.makedirs(thumb_dir, exist_ok=True)
-    formatter = TextFormatter(); count = 0; prog = st.progress(0)
+    # Di Streamlit Cloud, kita tidak bisa save file ke folder user dengan mudah.
+    # Jadi kita ubah logicnya untuk memberi TEXT yang bisa dicopy.
     
+    st.info("ℹ️ Di Versi Android/Cloud, file tidak bisa didownload sebagai ZIP. Silakan COPY teks di bawah ini.")
+    
+    result_text = f"=== DOWNLOAD ASSET: {channel_name} ===\n\n"
     for vid in video_data:
-        title = sanitize_filename(vid['Judul'])
-        try:
-            t = YouTubeTranscriptApi.get_transcript(vid['ID'], languages=['id', 'en', 'es', 'pt'])
-            with open(os.path.join(script_dir, f"{title}.txt"), "w", encoding="utf-8") as f:
-                f.write(f"JUDUL: {vid['Judul']}\nLINK: {vid['Link Video']}\n" + "-"*30 + "\n\n" + formatter.format_transcript(t))
-        except: 
-            with open(os.path.join(script_dir, f"{title}_NO_SCRIPT.txt"), "w", encoding="utf-8") as f: f.write("No Subs.")
-        try:
-            img = requests.get(vid['Thumbnail Link']).content
-            with open(os.path.join(thumb_dir, f"{title}.jpg"), "wb") as f: f.write(img)
-        except: pass
-        count += 1; prog.progress(int((count/len(video_data))*100))
-    return base
+        result_text += f"VIDEO: {vid['Judul']}\n"
+        result_text += f"THUMBNAIL URL: {vid['Thumbnail Link']}\n"
+        result_text += f"LINK: {vid['Link Video']}\n"
+        result_text += "-"*30 + "\n"
+    return result_text
 
 def download_metadata(video_data, channel_name):
-    safe = sanitize_filename(channel_name).replace(" ", "_"); base = f"ATM_Data_{safe}"
-    if not os.path.exists(base): os.makedirs(base)
-    f_path = os.path.join(base, f"Laporan_SEO_{safe}.txt")
-    with open(f_path, "w", encoding="utf-8") as f:
-        f.write(f"SEO REPORT: {channel_name}\n{'='*60}\n\n")
-        for i, v in enumerate(video_data):
-            tags = ", ".join(v['Tags']) if v['Tags'] else "No Tags"
-            hashtags = " ".join([f"#{h}" for h in v['Hashtags']]) if v['Hashtags'] else "No Hash"
-            f.write(f"VIDEO #{i+1}: {v['Judul']}\nVIEWS: {v['Views']:,}\nTAGS: {tags}\nHASHTAGS: {hashtags}\n{'='*60}\n\n")
-    return f_path
+    st.info("ℹ️ Silakan COPY data SEO di bawah ini:")
+    result_text = f"=== SEO REPORT: {channel_name} ===\n\n"
+    for vid in video_data:
+        tags = ", ".join(vid['Tags']) if vid['Tags'] else "No Tags"
+        hashtags = " ".join([f"#{h}" for h in vid['Hashtags']]) if vid['Hashtags'] else "No Hash"
+        result_text += f"JUDUL: {vid['Judul']}\nTAGS: {tags}\nHASHTAGS: {hashtags}\n\n"
+    return result_text
 
 def calculate_revenue(total_views, lang_percentages):
     if not lang_percentages: return 0, 0
     weighted = sum([RPM_RATES.get(l, 0.50) * (p/100) for l, p in lang_percentages.items()])
     return weighted, (total_views/1000)*weighted
 
-# --- AI Reverse Engineer ---
+# --- AI Reverse Engineer (FIXED: ANTI ERROR 404) ---
 def reverse_engineer_prompt(api_key, img_url, title):
     try:
         genai.configure(api_key=api_key)
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        img = Image.open(BytesIO(requests.get(img_url).content))
-        prompt = f"""Analyze thumbnail & title: "{title}".
-        Task 1: Reverse engineer Midjourney prompt (Subject, Style, Mood, Lighting).
-        Task 2: Guess audio genre for Suno AI prompt (Genre, BPM, Instruments).
-        Output: [VISUAL PROMPT] ... [AUDIO PROMPT] ..."""
-        return model.generate_content([prompt, img]).text
-    except Exception as e: return f"Error: {e}"
+        
+        # TRIK FIX: Coba panggil model 'gemini-1.5-flash'. 
+        # Jika error, kode akan otomatis lari ke 'except'.
+        try:
+            model = genai.GenerativeModel('gemini-1.5-flash')
+            img = Image.open(BytesIO(requests.get(img_url).content))
+            prompt = f"Analyze thumbnail & title: '{title}'. 1. Visual Prompt (Midjourney). 2. Audio Prompt (Suno AI). Output: [VISUAL]... [AUDIO]..."
+            return model.generate_content([prompt, img]).text
+        except:
+            # FALLBACK: Jika Flash error, pakai 'gemini-pro-vision' atau 'gemini-1.5-pro'
+            model = genai.GenerativeModel('gemini-1.5-flash-latest') 
+            img = Image.open(BytesIO(requests.get(img_url).content))
+            prompt = f"Analyze thumbnail & title: '{title}'. 1. Visual Prompt. 2. Audio Prompt."
+            return model.generate_content([prompt, img]).text
+
+    except Exception as e: 
+        return f"Gagal membedah prompt. Error: {e}. (Pastikan API Key sudah ENABLE di Google Console)"
 
 # --- Spy Scraper ---
 def scrape_spy(api_key, url, limit):
@@ -396,7 +374,7 @@ tab1, tab2, tab3, tab4 = st.tabs(["📡 CHANNEL HUNTER", "🦄 UNICORN CATCHER",
 
 # === TAB 1: HUNTER ===
 with tab1:
-    st.subheader("Pencari Channel Viral (Fitur Lengkap)")
+    st.subheader("Pencari Channel Viral")
     c1, c2 = st.columns(2)
     mode = c1.radio("Mode:", ["Manual Niche", "Auto Trending"])
     niche = c2.text_input("Niche", "Alur Cerita Film") if mode == "Manual Niche" else "TRENDING_AUTO"
@@ -429,8 +407,7 @@ with tab2:
 # === TAB 3: ORACLE ===
 with tab3:
     st.subheader("🔮 Oracle & Gap Detector")
-    # PERUBAHAN DI SINI: Default text sekarang jadi "Sholawat Merdu"
-    o_kw = st.text_input("Kata Kunci", "Sholawat Merdu", key="ora_kw")
+    o_kw = st.text_input("Kata Kunci", "Sholawat Merdu", key="ora_kw") # SAMARAN CINDY TRIMM
     if o_kw:
         sug = get_youtube_autocomplete(o_kw)
         if sug: st.caption(f"Ide: {', '.join(sug[:5])}")
@@ -471,17 +448,17 @@ with tab4:
         rev, earn = calculate_revenue(df_spy['Views'].sum(), stats)
         st.markdown(f"### 💰 Est. Omzet: ${earn:,.2f} (Rp {earn*15500:,.0f})")
         
-        # 2. DOWNLOADER
-        st.markdown("### 📥 Asset Downloader")
+        # 2. DOWNLOADER (MODE TEKS UNTUK ANDROID)
+        st.markdown("### 📥 Asset Downloader (Copy Mode)")
         b1, b2 = st.columns(2)
         with b1:
-            if st.button("📂 DOWNLOAD SCRIPT & THUMB"):
-                p = download_assets(data, name)
-                st.success(f"Saved: {p}")
+            if st.button("📂 LIHAT ASET (Link & Thumb)"):
+                t = download_assets(data, name)
+                st.text_area("Copy data ini:", value=t, height=200)
         with b2:
-            if st.button("📝 DOWNLOAD SEO REPORT"):
-                p = download_metadata(data, name)
-                st.success(f"Saved: {p}")
+            if st.button("📝 LIHAT DATA SEO (Tag & Judul)"):
+                t = download_metadata(data, name)
+                st.text_area("Copy data SEO ini:", value=t, height=200)
         
         st.dataframe(df_spy, column_config={"Thumbnail Link": st.column_config.ImageColumn("Preview")}, hide_index=True)
         
@@ -496,5 +473,4 @@ with tab4:
         if v_dat and st.button("🧬 BEDAH PROMPT VIDEO INI"):
             with st.spinner("Meracik Prompt..."):
                 res_prompt = reverse_engineer_prompt(api_key_to_use, v_dat['Thumbnail Link'], v_dat['Judul'])
-
                 st.text_area("Hasil Bedah Prompt:", value=res_prompt, height=300)
