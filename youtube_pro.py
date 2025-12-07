@@ -17,7 +17,7 @@ from collections import Counter
 # ==========================================
 # 1. KONFIGURASI HALAMAN & CSS
 # ==========================================
-st.set_page_config(page_title="Intelejen Pro V9.4 - Stable", layout="wide", page_icon="📱")
+st.set_page_config(page_title="Intelejen Pro V9.5 - Brute Force", layout="wide", page_icon="📱")
 
 st.markdown("""
 <style>
@@ -35,8 +35,8 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📱 INTELEJEN PRO V9.4")
-st.markdown("**Hunter + Unicorn + Oracle + Spy Glass (Stable AI).**")
+st.title("📱 INTELEJEN PRO V9.5")
+st.markdown("**Hunter + Unicorn + Oracle + Spy Glass (Model Hunter).**")
 
 # ==========================================
 # 2. SISTEM API KEY
@@ -291,33 +291,41 @@ def calculate_revenue(total_views, lang_percentages):
     weighted = sum([RPM_RATES.get(l, 0.50) * (p/100) for l, p in lang_percentages.items()])
     return weighted, (total_views/1000)*weighted
 
-# --- AI Reverse Engineer (FIXED: V9.4 STABLE) ---
+# --- AI Reverse Engineer (FIXED: BRUTE FORCE MODEL HUNTER) ---
 def reverse_engineer_prompt(api_key, img_url, title):
     genai.configure(api_key=api_key)
     
-    # HANYA GUNAKAN 1 MODEL YANG PALING STABIL & PASTI ADA
-    # Jangan pakai 'pro-vision' (sudah mati).
-    # Jangan pakai loop yang rumit.
-    # Pakai nama resmi yang paling aman: 'gemini-1.5-flash'
+    # KITA AKAN COBA SEMUA KEMUNGKINAN NAMA MODEL SAMPAI ADA YG NYANTOL
+    candidate_models = [
+        'gemini-1.5-flash',
+        'gemini-1.5-flash-latest',
+        'gemini-1.5-pro',
+        'gemini-1.5-pro-latest',
+        'gemini-pro-vision' 
+    ]
     
+    # Download Gambar Dulu
     try:
-        model = genai.GenerativeModel('gemini-1.5-flash')
-        
-        # Download gambar
         img_data = requests.get(img_url).content
         img = Image.open(BytesIO(img_data))
-        
-        prompt = f"""Analyze thumbnail & title: '{title}'. 
-        Task 1: Reverse engineer Midjourney prompt (Subject, Style, Mood, Lighting). 
-        Task 2: Guess audio genre for Suno AI prompt (Genre, BPM, Instruments). 
-        Output: [VISUAL PROMPT] ... [AUDIO PROMPT] ..."""
-
-        response = model.generate_content([prompt, img])
-        return response.text
-
     except Exception as e:
-        # Debugging: Jika masih error, tampilkan pesan jelas
-        return f"Gagal Bedah Prompt. \nDetail Error: {str(e)} \n\nSOLUSI: Pastikan API Key Anda sudah ENABLE 'Generative Language API' di Google Cloud Console."
+        return f"Gagal download gambar: {e}"
+
+    prompt = f"Analyze thumbnail & title: '{title}'. 1. Visual Prompt. 2. Audio Prompt."
+    
+    # LOOPING PENYELAMATAN
+    last_error = ""
+    for model_name in candidate_models:
+        try:
+            model = genai.GenerativeModel(model_name)
+            response = model.generate_content([prompt, img])
+            # Jika berhasil, langsung return dan keluar dari loop
+            return f"[SUCCESS using {model_name}]\n{response.text}"
+        except Exception as e:
+            last_error = str(e)
+            continue # Gagal? Coba model berikutnya...
+            
+    return f"Gagal Total. Semua model menolak. Error terakhir: {last_error}"
 
 # --- Spy Scraper ---
 def scrape_spy(api_key, url, limit):
