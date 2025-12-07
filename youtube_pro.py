@@ -38,7 +38,7 @@ st.markdown("""
 </style>
 """, unsafe_allow_html=True)
 
-st.title("📱 INTELEJEN PRO V9.1")
+st.title("📱 INTELEJEN PRO by Victor Nenjap")
 st.markdown("**Hunter + Unicorn + Oracle + Spy Glass (All-in-One).**")
 
 # ==========================================
@@ -496,4 +496,5 @@ with tab4:
         if v_dat and st.button("🧬 BEDAH PROMPT VIDEO INI"):
             with st.spinner("Meracik Prompt..."):
                 res_prompt = reverse_engineer_prompt(api_key_to_use, v_dat['Thumbnail Link'], v_dat['Judul'])
+
                 st.text_area("Hasil Bedah Prompt:", value=res_prompt, height=300)
