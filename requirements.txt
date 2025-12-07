@@ -1,0 +1,9 @@
+streamlit
+google-api-python-client
+youtube-transcript-api
+pandas
+requests
+isodate
+pillow
+google-generativeai
+watchdog
