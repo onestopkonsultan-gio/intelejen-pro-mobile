@@ -5,5 +5,5 @@ pandas
 requests
 isodate
 pillow
-google-generativeai
+google-generativeai>=0.7.0
 watchdog
